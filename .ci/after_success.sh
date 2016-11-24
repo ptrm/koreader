@@ -5,10 +5,14 @@ source "${CI_DIR}/common.sh"
 
 set +e
 
-travis_retry make coverage
-pushd koreader-*/koreader
-    luajit $(which luacov-coveralls) -v
-popd
+# travis_retry make coverage
+# pushd koreader-*/koreader
+#     luajit $(which luacov-coveralls) -v
+# popd
+#
+echo "checkkkkkkkkkkkkkkk"
+echo "PULL: ${TRAVIS_PULL_REQUEST}"
+echo "BRANCH: ${TRAVIS_BRANCH}"
 
 if [ ${TRAVIS_PULL_REQUEST} = false ] && [ ${TRAVIS_BRANCH} = 'master' ]; then
     travis_retry luarocks --local install ldoc
