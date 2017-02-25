@@ -1,6 +1,5 @@
 local MultiInputDialog = require("ui/widget/multiinputdialog")
 local ButtonDialog = require("ui/widget/buttondialog")
-local ButtonDialogTitle = require("ui/widget/buttondialogtitle")
 local InfoMessage = require("ui/widget/infomessage")
 local LoginDialog = require("ui/widget/logindialog")
 local OPDSParser = require("ui/opdsparser")
@@ -10,7 +9,7 @@ local CacheItem = require("cacheitem")
 local Menu = require("ui/widget/menu")
 local Screen = require("device").screen
 local url = require('socket.url')
-local T = require("ffi/util").template
+local util = require("ffi/util")
 local Cache = require("cache")
 local logger = require("logger")
 local _ = require("gettext")
@@ -360,7 +359,7 @@ function OPDSBrowser:getCatalog(feed_url)
     elseif not ok and catalog then
         logger.warn("cannot get catalog info from", feed_url, catalog)
         UIManager:show(InfoMessage:new{
-            text = T(
+            text = util.template(
                 _("Cannot get catalog info from %1"),
                 (feed_url or "")
             ),
@@ -483,14 +482,10 @@ function OPDSBrowser:appendCatalog(item_table_url)
     return true
 end
 
-function OPDSBrowser.getCurrentDownloadDir()
-    local lastdir = G_reader_settings:readSetting("lastdir")
-    return G_reader_settings:readSetting("download_dir") or lastdir
-end
-
 function OPDSBrowser:downloadFile(item, format, remote_url)
     -- download to user selected directory or last opened dir
-    local download_dir = self.getCurrentDownloadDir()
+    local lastdir = G_reader_settings:readSetting("lastdir")
+    local download_dir = G_reader_settings:readSetting("download_dir") or lastdir
     local utl = require("frontend/util")
     local file_system = utl.getFilesystemType(download_dir)
     if file_system == "vfat" or file_system == "fuse.fsp" then
@@ -525,13 +520,6 @@ function OPDSBrowser:downloadFile(item, format, remote_url)
     end
 end
 
-function OPDSBrowser:createNewDownloadDialog(path, buttons)
-    self.download_dialog = ButtonDialogTitle:new{
-        title = T(_("Download directory:\n%1\n\nDownload file type:"), path),
-        buttons = buttons
-    }
-end
-
 function OPDSBrowser:showDownloads(item)
     local acquisitions = item.acquisitions
     local downloadsperline = 2
@@ -546,8 +534,7 @@ function OPDSBrowser:showDownloads(item)
             if acquisition then
                 local format = self.formats[acquisition.type]
                 if format then
-                    -- append DOWNWARDS BLACK ARROW ⬇ U+2B07 to format
-                    button.text = format .. "\xE2\xAC\x87"
+                    button.text = format
                     button.callback = function()
                         UIManager:scheduleIn(1, function()
                             self:downloadFile(item, format, acquisition.href)
@@ -560,13 +547,10 @@ function OPDSBrowser:showDownloads(item)
                     end
                     table.insert(line, button)
                 end
-            elseif #acquisitions > downloadsperline then
-                table.insert(line, {text=""})
             end
         end
         table.insert(buttons, line)
     end
-    table.insert(buttons, {})
     -- set download directory button
     table.insert(buttons, {
         {
@@ -577,18 +561,15 @@ function OPDSBrowser:showDownloads(item)
                     onConfirm = function(path)
                         logger.dbg("set download directory to", path)
                         G_reader_settings:saveSetting("download_dir", path)
-                        UIManager:nextTick(function()
-                            UIManager:close(self.download_dialog)
-                            self:createNewDownloadDialog(path, buttons)
-                            UIManager:show(self.download_dialog)
-                        end)
                     end,
                 }:chooseDir()
             end,
         }
     })
 
-    self:createNewDownloadDialog(self.getCurrentDownloadDir(), buttons)
+    self.download_dialog = ButtonDialog:new{
+        buttons = buttons
+    }
     UIManager:show(self.download_dialog)
 end
 
